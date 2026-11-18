@@ -22,6 +22,9 @@ type RecipeCardProps = {
 
 // `{ recipe }: RecipeCardProps` = "o objeto das props tem o tipo
 // RecipeCardProps, e eu tiro logo de lá o `recipe` (destructuring)".
+// Podemos usar `export function RecipeCard({ recipe }: {recipe: Recipe})` 
+// se o tipo não for usado noutro lado e tiver apenas um ou dois campos,
+// mas é mais limpo criar um tipo próprio.
 export function RecipeCard({ recipe }: RecipeCardProps) {
   // A partir daqui o editor SABE o que é `recipe`. Escreve `recipe.` e
   // vê o autocomplete. Escreve `recipe.titel` e vê o erro.
