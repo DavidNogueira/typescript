@@ -61,6 +61,14 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
           <li key={index}>{step}</li>
         ))}
       </ol>
+
+      {/* NOVO NA FEATURE 2:
+          `recipe.notes` é `string | undefined` (passa o rato por cima).
+          O `&&` garante que só mostramos o parágrafo quando as notas
+          existem. Dentro do <p>, o TS já sabe que é string. */}
+      {recipe.notes && (
+        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">💡 {recipe.notes}</p>
+      )}
     </article>
   )
 }

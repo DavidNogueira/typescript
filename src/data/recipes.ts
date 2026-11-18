@@ -42,6 +42,9 @@ export const recipes: Recipe[] = [
       'Levar ao forno numa forma untada durante 40 minutos.',
     ],
     usesBimby: false,
+    // Só esta receita tem notas. As outras não têm o campo e o TS aceita,
+    // porque `notes` é opcional (`notes?: string`).
+    notes: 'Usa o copo do iogurte como medida para os outros ingredientes.',
   },
   {
     id: '3',

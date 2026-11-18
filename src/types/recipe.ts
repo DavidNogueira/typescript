@@ -43,4 +43,27 @@ export type Recipe = {
   // boolean: só há duas respostas possíveis, sim ou não.
   // (Na feature 3 vamos ver porque é que isto vai deixar de chegar...)
   usesBimby: boolean
+
+  // ── NOVO NA FEATURE 2 ──────────────────────────────────────
+  // O `?` torna o campo OPCIONAL: uma receita pode ter notas ou não.
+  //
+  // PORQUE OPCIONAL E NÃO `notes: string`?
+  // Porque muitas receitas não têm notas. Sem o `?` terias de escrever
+  // `notes: ''` em todas, um valor "falso" só para calar o TS (lembra-te
+  // da conversa do id vazio).
+  //
+  // Na prática `notes?: string` significa "o campo pode nem existir,
+  // e se existir é uma string". Quando o leres, o TS diz que o tipo é
+  // `string | undefined` e obriga-te a lidar com o caso de não existir.
+  notes?: string
 }
+
+// ── NOVO NA FEATURE 2 ────────────────────────────────────────
+// Uma receita acabada de criar no formulário ainda NÃO tem id
+// (o id só é gerado quando a guardamos). É a conversa que tivemos!
+//
+// PORQUE AQUI E NÃO NO FORMULÁRIO?
+// Porque é usado em dois sítios: o formulário (que o produz) e o App
+// (que o recebe e lhe dá um id). Lembra-te da regra: quando mais de
+// um sítio precisa de um tipo, ele vai para um ficheiro partilhado.
+export type NewRecipe = Omit<Recipe, 'id'>
