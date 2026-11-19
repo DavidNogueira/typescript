@@ -9,26 +9,32 @@ import type { Recipe } from '../types/recipe'
 // Se te esquecesses de um campo numa receita, ele não se queixava,
 // limitava-se a inferir um tipo diferente.
 // Com `: Recipe[]` invertemos a lógica: os dados têm de obedecer ao
-// contrato. Experimenta apagar o `servings` de uma receita ou escrever
-// `prepTimeMinutes: '30'` e vê o erro que aparece.
+// contrato.
+//
+// FEATURE 3: repara que cada receita é verificada de acordo com o seu
+// `kind`. Experimenta:
+//   • na sopa (bimby), trocar um passo por um texto simples;
+//   • no bolo (traditional), pôr `speed: 5` num passo;
+//   • mudar uma velocidade para `speed: 11` ou `speed: 'rápido'`.
 export const recipes: Recipe[] = [
   {
     id: '1',
+    kind: 'bimby',
     title: 'Sopa de legumes',
     description: 'Sopa cremosa e reconfortante, perfeita para o inverno.',
     prepTimeMinutes: 30,
     servings: 4,
     ingredients: ['2 cenouras', '1 batata', '1 courgette', '1 cebola', 'Azeite q.b.', 'Sal q.b.'],
     steps: [
-      'Colocar a cebola no copo e picar 5 seg/vel 5.',
-      'Adicionar o azeite e refogar 3 min/120°C/vel 1.',
-      'Juntar os restantes legumes, água e sal e cozinhar 20 min/100°C/vel 1.',
-      'Triturar 1 min/vel 5-10 progressivamente.',
+      { description: 'Colocar a cebola no copo e picar.', durationSeconds: 5, speed: 5 },
+      { description: 'Adicionar o azeite e refogar.', durationSeconds: 180, temperature: 120, speed: 1 },
+      { description: 'Juntar os restantes legumes, água e sal e cozinhar.', durationSeconds: 1200, temperature: 100, speed: 1 },
+      { description: 'Triturar, aumentando a velocidade progressivamente.', durationSeconds: 60, speed: 10 },
     ],
-    usesBimby: true,
   },
   {
     id: '2',
+    kind: 'traditional',
     title: 'Bolo de iogurte',
     description: 'O clássico bolo de iogurte, fofo e simples.',
     prepTimeMinutes: 50,
@@ -41,24 +47,21 @@ export const recipes: Recipe[] = [
       'Envolver a farinha com o fermento.',
       'Levar ao forno numa forma untada durante 40 minutos.',
     ],
-    usesBimby: false,
-    // Só esta receita tem notas. As outras não têm o campo e o TS aceita,
-    // porque `notes` é opcional (`notes?: string`).
     notes: 'Usa o copo do iogurte como medida para os outros ingredientes.',
   },
   {
     id: '3',
+    kind: 'bimby',
     title: 'Arroz de tomate',
     description: 'Arroz malandrinho de tomate, acompanhamento perfeito.',
     prepTimeMinutes: 25,
     servings: 4,
     ingredients: ['250 g de arroz', '1 lata de tomate pelado', '1 cebola', '2 dentes de alho', '700 g de água', 'Azeite q.b.'],
     steps: [
-      'Picar a cebola e o alho 5 seg/vel 5.',
-      'Refogar com azeite 5 min/120°C/vel 1.',
-      'Adicionar o tomate e triturar 10 seg/vel 7.',
-      'Juntar a água e o arroz e cozinhar 15 min/100°C/colher inversa/vel colher.',
+      { description: 'Picar a cebola e o alho.', durationSeconds: 5, speed: 5 },
+      { description: 'Juntar o azeite e refogar.', durationSeconds: 300, temperature: 120, speed: 1 },
+      { description: 'Adicionar o tomate e triturar.', durationSeconds: 10, speed: 7 },
+      { description: 'Juntar a água e o arroz e cozinhar.', durationSeconds: 900, temperature: 100, speed: 'colher', reverse: true },
     ],
-    usesBimby: true,
   },
 ]

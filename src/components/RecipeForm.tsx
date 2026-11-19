@@ -1,5 +1,7 @@
 import { useState, type ChangeEvent, type SubmitEvent } from 'react'
-import type { NewRecipe } from '../types/recipe'
+import type { NewRecipe, RecipeKind } from '../types/recipe'
+import { BimbyStepsField } from './BimbyStepsField'
+import { createEmptyStep, toBimbyStep, type BimbyStepFormValues } from './bimbyStepForm'
 
 // ─────────────────────────────────────────────────────────────
 // 1. AS PROPS: UMA FUNÇÃO COMO PROP
@@ -40,9 +42,19 @@ type RecipeFormValues = {
   prepTimeMinutes: string // string! vem de um <input>
   servings: string // string! vem de um <input>
   ingredients: string // um texto, uma linha por ingrediente
-  steps: string // um texto, uma linha por passo
-  usesBimby: boolean // checkbox → aqui sim, boolean
   notes: string // no formulário existe sempre (pode é estar vazio)
+
+  // ── FEATURE 3 ──────────────────────────────────────────────
+  // O tipo da receita escolhido no formulário: 'bimby' | 'traditional'.
+  kind: RecipeKind
+
+  // PORQUE DOIS CAMPOS DE PASSOS E NÃO UMA UNIÃO, COMO NA Recipe?
+  // Porque no formulário o utilizador pode trocar de Bimby para
+  // tradicional e voltar atrás. Guardando os dois, não perde o que já
+  // escreveu. Só no submit escolhemos qual deles usar (ver handleSubmit).
+  // Ou seja: outra vez, o tipo descreve a realidade DO FORMULÁRIO.
+  traditionalSteps: string // um texto, uma linha por passo
+  bimbySteps: BimbyStepFormValues[] // uma lista de linhas com vários inputs
 }
 
 const emptyValues: RecipeFormValues = {
@@ -51,9 +63,10 @@ const emptyValues: RecipeFormValues = {
   prepTimeMinutes: '',
   servings: '',
   ingredients: '',
-  steps: '',
-  usesBimby: false,
   notes: '',
+  kind: 'bimby',
+  traditionalSteps: '',
+  bimbySteps: [createEmptyStep()],
 }
 
 // Pequena função auxiliar: "texto com várias linhas" → string[]
@@ -89,13 +102,17 @@ export function RecipeForm({ onAdd }: RecipeFormProps) {
   //
   // Mas quando a separamos numa função própria, como aqui, o TS já não
   // sabe onde ela vai ser usada, por isso temos de lhe dizer:
-  //   ChangeEvent<HTMLInputElement> = "evento de mudança num <input>"
+  //   ChangeEvent<HTMLTextAreaElement> = "evento de mudança numa <textarea>"
   //
-  // O <HTMLInputElement> é importante: é por causa dele que o TS sabe
-  // que `event.target.checked` existe. (Uma <textarea> não tem `checked`!)
+  // O <HTMLTextAreaElement> é importante: diz ao TS que elemento está
+  // em `event.target`. Experimenta escrever `event.target.checked` aqui:
+  // dá erro, porque uma <textarea> não tem `checked` (um <input> tem).
+  //
+  // (Na feature 2 este exemplo era a checkbox "Receita Bimby", que na
+  // feature 3 deu lugar à escolha do tipo de receita.)
   // ─────────────────────────────────────────────────────────────
-  function handleBimbyChange(event: ChangeEvent<HTMLInputElement>) {
-    setValues({ ...values, usesBimby: event.target.checked })
+  function handleNotesChange(event: ChangeEvent<HTMLTextAreaElement>) {
+    setValues({ ...values, notes: event.target.value })
   }
 
   // SubmitEvent<HTMLFormElement> = "evento de submissão de um <form>"
@@ -111,18 +128,28 @@ export function RecipeForm({ onAdd }: RecipeFormProps) {
     // de converter um campo (ex: deixar servings como string) ou de
     // incluir algum, o TS dá erro AQUI, e não lá longe no RecipeCard.
     // ─────────────────────────────────────────────────────────────
-    const newRecipe: NewRecipe = {
+
+    // Os campos comuns aos dois tipos de receita.
+    const common = {
       title: values.title.trim(),
       description: values.description.trim(),
       prepTimeMinutes: Number(values.prepTimeMinutes),
       servings: Number(values.servings),
       ingredients: linesToArray(values.ingredients),
-      steps: linesToArray(values.steps),
-      usesBimby: values.usesBimby,
       // Se as notas estiverem vazias, '' || undefined → undefined,
       // ou seja, a receita fica "sem notas" (em vez de notas vazias).
       notes: values.notes.trim() || undefined,
     }
+
+    // ── FEATURE 3: CONSTRUIR UM LADO DA UNIÃO ──────────────────
+    // Consoante o `kind`, construímos uma receita Bimby OU tradicional.
+    // Em cada ramo, o TS verifica se `kind` e `steps` batem certo:
+    // experimenta, no ramo 'bimby', trocar os steps por
+    // `linesToArray(values.traditionalSteps)` e lê o erro.
+    const newRecipe: NewRecipe =
+      values.kind === 'bimby'
+        ? { ...common, kind: 'bimby', steps: values.bimbySteps.map(toBimbyStep) }
+        : { ...common, kind: 'traditional', steps: linesToArray(values.traditionalSteps) }
 
     onAdd(newRecipe) // entrega a receita ao App
     setValues(emptyValues) // limpa o formulário
@@ -201,16 +228,59 @@ export function RecipeForm({ onAdd }: RecipeFormProps) {
         />
       </div>
 
+      {/* ── FEATURE 3: ESCOLHER O TIPO DE RECEITA ──────────────
+          Cada radio põe no estado um valor LITERAL ('bimby' ou
+          'traditional'). Experimenta mudar um deles para 'bimbi':
+          o TS não deixa, porque `kind` é do tipo RecipeKind. */}
+      <fieldset>
+        <legend className={labelClass}>Tipo de receita</legend>
+        <div className="flex gap-6 text-sm text-stone-700">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="kind"
+              checked={values.kind === 'bimby'}
+              onChange={() => setValues({ ...values, kind: 'bimby' })}
+            />
+            Bimby
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="kind"
+              checked={values.kind === 'traditional'}
+              onChange={() => setValues({ ...values, kind: 'traditional' })}
+            />
+            Tradicional
+          </label>
+        </div>
+      </fieldset>
+
       <div>
-        <label className={labelClass} htmlFor="steps">Passos (um por linha)</label>
-        <textarea
-          id="steps"
-          required
-          rows={4}
-          className={inputClass}
-          value={values.steps}
-          onChange={(event) => setValues({ ...values, steps: event.target.value })}
-        />
+        {values.kind === 'bimby' ? (
+          <>
+            <p className={labelClass}>Passos</p>
+            {/* O BimbyStepsField recebe os passos e uma função para os
+                atualizar. O tipo de `steps` que ele nos devolve é
+                BimbyStepFormValues[], o mesmo que o nosso estado guarda. */}
+            <BimbyStepsField
+              steps={values.bimbySteps}
+              onChange={(bimbySteps) => setValues({ ...values, bimbySteps })}
+            />
+          </>
+        ) : (
+          <>
+            <label className={labelClass} htmlFor="steps">Passos (um por linha)</label>
+            <textarea
+              id="steps"
+              required
+              rows={4}
+              className={inputClass}
+              value={values.traditionalSteps}
+              onChange={(event) => setValues({ ...values, traditionalSteps: event.target.value })}
+            />
+          </>
+        )}
       </div>
 
       <div>
@@ -220,14 +290,9 @@ export function RecipeForm({ onAdd }: RecipeFormProps) {
           rows={2}
           className={inputClass}
           value={values.notes}
-          onChange={(event) => setValues({ ...values, notes: event.target.value })}
+          onChange={handleNotesChange}
         />
       </div>
-
-      <label className="flex items-center gap-2 text-sm text-stone-700">
-        <input type="checkbox" checked={values.usesBimby} onChange={handleBimbyChange} />
-        Receita Bimby
-      </label>
 
       <button
         type="submit"

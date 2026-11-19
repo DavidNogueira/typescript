@@ -15,55 +15,139 @@
 // compilador te avisarem dos erros ANTES de correres a app.
 // ─────────────────────────────────────────────────────────────
 
-// `type` vs `interface`: para descrever a forma de um objeto, os dois
-// fazem praticamente o mesmo. Podias escrever:
+// `type` vs `interface`: ver src/playground/type-vs-interface.ts.
+// Neste projeto usamos `type` por defeito. E é NESTE ficheiro, na
+// feature 3, que vais ver porquê: quase tudo o que está abaixo
+// (unions, literais) só se consegue escrever com `type`.
+
+
+// ═════════════════════════════════════════════════════════════
+// FEATURE 3: BIMBY vs TRADICIONAL
 //
-//   interface Recipe { id: string; title: string; ... }
+// O PROBLEMA:
+// Na feature 1/2 tínhamos:
 //
-// Neste projeto vamos usar `type` por defeito, porque mais à frente
-// (feature 3) vamos precisar de coisas que só o `type` consegue fazer
-// (ex: "isto OU aquilo"). Usar sempre o mesmo evita a pergunta
-// "porque é que aqui é interface e ali é type?".
-export type Recipe = {
-  // string e não number: os ids normalmente vêm de fora (base de dados,
-  // crypto.randomUUID()...) e não fazemos contas com eles.
+//   usesBimby: boolean
+//   steps: string[]
+//
+// Mas um passo de Bimby tem tempo, temperatura e velocidade, e um passo
+// tradicional é só texto. Uma primeira ideia seria:
+//
+//   usesBimby: boolean
+//   steps: string[] | BimbyStep[]
+//
+// Isto NÃO resolve: o TS não sabe que os dois campos estão LIGADOS.
+// Aceitaria `usesBimby: true` com passos em texto, e mesmo depois de
+// verificares `if (recipe.usesBimby)`, continuaria a achar que `steps`
+// pode ser qualquer um dos dois. O boolean não "diz" nada sobre os passos.
+//
+// A SOLUÇÃO: uma "discriminated union" (união discriminada).
+// Em vez de UMA receita com campos "talvez", temos DOIS tipos de receita
+// bem definidos, e um campo (`kind`) que diz qual deles é.
+// ═════════════════════════════════════════════════════════════
+
+
+// ─────────────────────────────────────────────────────────────
+// 1. LITERAL TYPES + UNION
+//
+// `'colher'` aqui não é uma string qualquer: é um TIPO que só aceita
+// exatamente o texto 'colher'. O mesmo para 1, 2, 3...
+// O `|` junta-os: "a velocidade é UM destes valores, e mais nenhum".
+//
+// PORQUE NÃO `speed: number`?
+// Porque deixaria passar 37, -2 ou 3.14. A Bimby não tem essas
+// velocidades. Assim o TS só aceita velocidades que existem.
+//
+// Repara que a union mistura strings e números. Isso vai ser útil no
+// RecipeCard para mostrar "vel 5" vs "vel colher" (ver formatSpeed).
+// ─────────────────────────────────────────────────────────────
+export type BimbySpeed = 'colher' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 'turbo'
+
+// ─────────────────────────────────────────────────────────────
+// 2. A FORMA DE UM PASSO DE BIMBY
+// ─────────────────────────────────────────────────────────────
+export type BimbyStep = {
+  description: string
+  // Em segundos e não em "texto" ('3 min'), para podermos fazer contas
+  // (ex: somar o tempo total). Formatamos só na hora de mostrar.
+  durationSeconds: number
+  // Opcional: picar ou triturar não aquece.
+  temperature?: number
+  speed: BimbySpeed
+  // Opcional: só alguns passos usam a rotação inversa.
+  reverse?: boolean
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3. O QUE É COMUM A TODAS AS RECEITAS
+//
+// Em vez de repetir estes campos nos dois tipos de receita, ficam aqui.
+// Não é exportado: ninguém fora deste ficheiro precisa dele.
+// ─────────────────────────────────────────────────────────────
+type RecipeBase = {
   id: string
   title: string
   description: string
-
-  // number: aqui sim queremos fazer contas (ex: somar tempos, ordenar).
   prepTimeMinutes: number
   servings: number
-
-  // string[] = "um array em que cada elemento é uma string".
-  // (Também se pode escrever Array<string>; é exatamente o mesmo.)
   ingredients: string[]
-  steps: string[]
-
-  // boolean: só há duas respostas possíveis, sim ou não.
-  // (Na feature 3 vamos ver porque é que isto vai deixar de chegar...)
-  usesBimby: boolean
-
-  // ── NOVO NA FEATURE 2 ──────────────────────────────────────
-  // O `?` torna o campo OPCIONAL: uma receita pode ter notas ou não.
-  //
-  // PORQUE OPCIONAL E NÃO `notes: string`?
-  // Porque muitas receitas não têm notas. Sem o `?` terias de escrever
-  // `notes: ''` em todas, um valor "falso" só para calar o TS (lembra-te
-  // da conversa do id vazio).
-  //
-  // Na prática `notes?: string` significa "o campo pode nem existir,
-  // e se existir é uma string". Quando o leres, o TS diz que o tipo é
-  // `string | undefined` e obriga-te a lidar com o caso de não existir.
   notes?: string
 }
 
-// ── NOVO NA FEATURE 2 ────────────────────────────────────────
-// Uma receita acabada de criar no formulário ainda NÃO tem id
-// (o id só é gerado quando a guardamos). É a conversa que tivemos!
+// ─────────────────────────────────────────────────────────────
+// 4. OS DOIS "SABORES" DE RECEITA
 //
-// PORQUE AQUI E NÃO NO FORMULÁRIO?
-// Porque é usado em dois sítios: o formulário (que o produz) e o App
-// (que o recebe e lhe dá um id). Lembra-te da regra: quando mais de
-// um sítio precisa de um tipo, ele vai para um ficheiro partilhado.
-export type NewRecipe = Omit<Recipe, 'id'>
+// `&` (interseção, como no playground): "tudo o que está em RecipeBase
+// E mais isto".
+//
+// O campo `kind` é o DISCRIMINANTE. Repara no tipo: não é `string`,
+// é o literal 'bimby' (ou 'traditional'). Cada tipo de receita tem o
+// seu valor fixo, e é isso que permite ao TS distingui-las.
+// ─────────────────────────────────────────────────────────────
+export type BimbyRecipe = RecipeBase & {
+  kind: 'bimby'
+  steps: BimbyStep[]
+}
+
+export type TraditionalRecipe = RecipeBase & {
+  kind: 'traditional'
+  steps: string[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// 5. A UNIÃO DISCRIMINADA
+//
+// "Uma Recipe é uma BimbyRecipe OU uma TraditionalRecipe."
+//
+// O resto da app continua a usar só `Recipe`, como até aqui.
+// A magia acontece quando escreves:
+//
+//   if (recipe.kind === 'bimby') {
+//     recipe.steps   // ← o TS SABE que é BimbyStep[]
+//   } else {
+//     recipe.steps   // ← o TS SABE que é string[]
+//   }
+//
+// A isto chama-se NARROWING ("estreitar"): ao verificar o `kind`, o TS
+// estreita a Recipe para o tipo concreto. Vê no RecipeCard.
+// ─────────────────────────────────────────────────────────────
+export type Recipe = BimbyRecipe | TraditionalRecipe
+
+// Em vez de escrever outra vez 'bimby' | 'traditional', perguntamos à
+// Recipe que valores pode ter o `kind` dela. Se um dia acrescentares um
+// terceiro tipo de receita, isto atualiza-se sozinho.
+// (Lê-se: "o tipo do campo kind da Recipe".)
+export type RecipeKind = Recipe['kind']
+
+// ─────────────────────────────────────────────────────────────
+// 6. NewRecipe: CUIDADO COM O Omit EM UNIÕES!
+//
+// Na feature 2 tínhamos `Omit<Recipe, 'id'>`. Agora que Recipe é uma
+// união, isso já NÃO funciona como esperado: o Omit "achata" a união
+// num só objeto e perde a ligação entre `kind` e `steps` (voltávamos
+// ao problema do boolean!).
+//
+// Por isso aplicamos o Omit a CADA lado da união, separadamente.
+// (Vamos voltar a este detalhe na feature 5, com os utility types.)
+// ─────────────────────────────────────────────────────────────
+export type NewRecipe = Omit<BimbyRecipe, 'id'> | Omit<TraditionalRecipe, 'id'>
